@@ -302,7 +302,7 @@ def send_message_to_channels(channel_id, message):  # pragma: no cover
 
 
 def send_message_thread(channel_id, message, thread_timestamp):  # pragma: no cover
-    """Sends the message thread.
+    """Send the message thread.
 
     param channel_id: ID of the channel.
     param message: message to be sent.
@@ -537,8 +537,7 @@ def check_is_question(sentence):
 
 
 def luis_classifier(query, channel, reply_ts):
-    """Classifies comments to intents like getting started, none, participant-
-    gender.
+    """Classifies comments to intents like getting started, participant-gender.
 
     param query: question asked by the user.
     param channel: ID of the channel.

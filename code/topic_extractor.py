@@ -45,7 +45,7 @@ class NPExtractor(object):
 
     @staticmethod
     def normalize_tags(tagged):  # pragma: no cover
-        """# Normalize brown corpus' tags ("NN", "NN-PL", "NNS" > "NN")"""
+        """# Normalize brown corpus' tags ("NN", "NN-PL", "NNS" > "NN")."""
         n_tagged = []
         for t in tagged:
             if t[1] == "NP-TL" or t[1] == "NP":
@@ -62,7 +62,6 @@ class NPExtractor(object):
 
     def extract(self):  # pragma: no cover
         """Extract the main topics from the sentence."""
-
         tokens = self.tokenize_sentence(self.sentence)
         tags = self.normalize_tags(bigram_tagger.tag(tokens))
 

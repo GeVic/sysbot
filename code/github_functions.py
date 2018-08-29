@@ -337,8 +337,7 @@ def check_issue_template(repo_owner, repo_name, issue_number, body):
 
 
 def are_issue_essential_components_present(body):
-    """Check if issue has all essential components of a template. Used by
-    check_issue_template.
+    """Check if issue has all essential components of a template.
 
     param body: json response with key value pairs of issue template components.
     return: True if all essential componentsa are present.
@@ -386,8 +385,7 @@ def are_issue_essential_components_present(body):
 
 
 def list_open_prs_from_repo(repo_owner, repo_name):  # pragma: no cover
-    """List all open PRs from a repo that were opened within 7 days of the
-    passed date.
+    """List all open PRs from repo opened within 7 days of the passed date.
 
     param repo_owner: Owner of the issue.
     param repo_name: Name of the repository.
