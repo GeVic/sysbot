@@ -14,8 +14,10 @@ from request_urls import (dm_channel_open_url, dm_chat_post_message_url, get_mai
 from messages import MESSAGE, ANSWERS_FAQS
 from github_functions import (send_github_invite, issue_comment_approve_github, issue_assign,
                               check_assignee_validity, check_multiple_issue_claim,
-                              open_issue_github, get_issue_author, check_approved_tag)
-from dictionaries import slack_team_vs_repo_dict, techstack_vs_projects, message_key_vs_list_of_alternatives
+                              open_issue_github, get_issue_author, check_approved_tag, fetch_issue_body,
+                              label_list_issue)
+from dictionaries import slack_team_vs_repo_dict, techstack_vs_projects, message_key_vs_list_of_alternatives, \
+    CHANNEL_LIST
 
 headers = {'Content-type': 'application/json', 'Authorization': 'Bearer {}'.format(BOT_ACCESS_TOKEN)}
 headers_legacy_urlencoded = {
@@ -188,6 +190,9 @@ def assign_issue_slack(data):
                 send_message_ephemeral(channel_id, uid, MESSAGE.get('already_claimed', ''))
                 return {"message": "Issue already claimed"}
             # If issue has not been approved, send message to the channel
+            if type(is_issue_approved) is dict:
+                send_message_ephemeral(channel_id, uid, MESSAGE.get('wrong_info', ''))
+                return {"message": "Wrong information provided", "status": 404}
             if not is_issue_approved:
                 send_message_ephemeral(channel_id, uid, MESSAGE.get('not_approved', ''))
                 return {"message": "Issue not approved"}
@@ -238,6 +243,9 @@ def claim_issue_slack(data):
             send_message_ephemeral(channel_id, uid, MESSAGE.get('already_claimed', ''))
             return {"message": "Issue already claimed"}
         # If issue has not been approved, send message to the channel
+        if isinstance(is_issue_approved, dict):
+            send_message_ephemeral(channel_id, uid, MESSAGE.get('wrong_info', ''))
+            return {"message": "Wrong information provided", "status": 404}
         if not is_issue_approved:
             send_message_ephemeral(channel_id, uid, MESSAGE.get('not_approved', ''))
             return {"message": "Issue not approved"}
@@ -493,7 +501,7 @@ def handle_message_answering(event_data):
     # Answering some FAQs
     answer_keyword_faqs(text, channel, reply_ts)
     # Answering classification questions only on questions and intro and not in threads
-    if thread_ts is None and (channel == 'C0S15BFNX' or channel == 'C0CAF47RQ'):
+    if thread_ts is None and (channel == CHANNEL_LIST.get('questions') or channel == CHANNEL_LIST.get('intro')):
         luis_classifier(text, channel, reply_ts)
         return {'message': 'Sent for intent classification'}
     return {'message': 'Not sent for classification'}
@@ -555,3 +563,56 @@ def luis_classifier(query, channel, reply_ts):
     elif top_intent == 'getting-started' and top_intent_score > 0.6:
         send_message_thread(channel, ANSWERS_FAQS.get('getting_started'), reply_ts)
         return {'message': 'Getting started question'}
+
+
+def view_issue_slack(event_data):
+    """View an issue directly on Slack. Fetches issue body and posts it on Slack.
+
+    param event_data: Data related to the event.
+    return: response message.
+    """
+    command_text = event_data.get('text', '')
+    channel_id = event_data.get('channel_id', '')
+    uid = event_data.get('user_id', '')
+    tokens = command_text.strip().split(' ')
+    if len(tokens) == 2:
+        response = fetch_issue_body(org_repo_owner, tokens[0], tokens[1])
+        if response.get('status', 404) == 200:
+            send_message_ephemeral(channel_id, uid, response.get('issue_body', ''))
+            return {'message': 'Success in viewing.'}
+        else:
+            send_message_ephemeral(channel_id, uid, MESSAGE.get('incorrect_info_provided', ''))
+            return {'message': "Wrong info provided"}
+    else:
+        send_message_ephemeral(channel_id, uid, MESSAGE.get('error_view_command', ''))
+        return {'message': "Error in using command"}
+
+
+def label_issue_slack(event_data):
+    """Label issue via slack.
+
+    param event_data: Dataa related to the event.
+    return: response message.
+    """
+    label_text = event_data.get('text', '')
+    channel_id = event_data.get('channel_id', '')
+    uid = event_data.get('user_id', '')
+    response = is_maintainer_comment(uid)
+    tokens = label_text.split(' ')
+    label_list_tokens = label_text.split('[')
+    if response.get('is_maintainer', False):
+        if len(tokens) < 3 and len(label_list_tokens) != 2 and "]" not in label_text:
+            send_message_ephemeral(channel_id, uid, MESSAGE.get('error_view_command', ''))
+            return {'message': 'Wrong format'}
+        else:
+            label_list_tokens = '@sys-bot label %s' % label_list_tokens[1].split(']')[0]
+            response = label_list_issue(org_repo_owner, tokens[0], tokens[1], label_list_tokens)
+            if response.get('status', 400) == 400:
+                send_message_ephemeral(channel_id, uid, MESSAGE.get('incorrect_info_provided', ''))
+                return {'message': 'Wrong info'}
+            else:
+                send_message_ephemeral(channel_id, uid, MESSAGE.get('success', ''))
+                return {'message': 'Labelled issue'}
+    else:
+        send_message_ephemeral(channel_id, uid, MESSAGE.get('not_a_maintainer', ''))
+        return {'message': "Not a maintainer"}

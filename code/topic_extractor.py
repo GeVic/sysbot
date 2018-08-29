@@ -1,5 +1,3 @@
-"""Extract the categories from queries."""
-
 import nltk
 from nltk.corpus import brown
 
@@ -31,21 +29,19 @@ cfg = {
 
 
 class NPExtractor(object):
-    """Noun phase extractor."""
 
     def __init__(self, sentence):  # pragma: no cover
-        """Initialization."""
         self.sentence = sentence
 
+    # Split the sentence into single words/tokens
     @staticmethod
     def tokenize_sentence(sentence):  # pragma: no cover
-        """Split the sentence into single words/tokens."""
         tokens = nltk.word_tokenize(sentence)
         return tokens
 
+    # Normalize brown corpus' tags ("NN", "NN-PL", "NNS" > "NN")
     @staticmethod
     def normalize_tags(tagged):  # pragma: no cover
-        """# Normalize brown corpus' tags ("NN", "NN-PL", "NNS" > "NN")."""
         n_tagged = []
         for t in tagged:
             if t[1] == "NP-TL" or t[1] == "NP":
@@ -60,8 +56,9 @@ class NPExtractor(object):
             n_tagged.append((t[0], t[1]))
         return n_tagged
 
+    # Extract the main topics from the sentence
     def extract(self):  # pragma: no cover
-        """Extract the main topics from the sentence."""
+
         tokens = self.tokenize_sentence(self.sentence)
         tags = self.normalize_tags(bigram_tagger.tag(tokens))
 

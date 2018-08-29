@@ -64,7 +64,7 @@ def send_github_invite(github_id):
     if r.status_code == 200:
         return {'message': 'Success', 'status': r.status_code}
     else:
-        return {'message': 'Error', 'status': r.status_code}
+        return {'message': 'Error', 'status': 404}
 
 
 def issue_comment_approve_github(issue_number, repo_name, repo_owner, comment_author, is_from_slack):
@@ -269,13 +269,17 @@ def check_approved_tag(repo_owner, repo_name, issue_number):
     session = requests.Session()
     session.auth = (USERNAME, PASSWORD)
     request_url = get_labels % (repo_owner, repo_name, issue_number)
-    labels = session.get(request_url).json()
+    label_response = session.get(request_url)
+    labels = label_response.json()
     label_approved_present = False
-    for label in labels:
-        if label.get('name', '') == 'issue-approved':
-            label_approved_present = True
-        if label.get('name', '') == 'Template Mismatch':
-            return False
+    if label_response.status_code == 200:
+        for label in labels:
+            if label.get('name', '') == 'issue-approved':
+                label_approved_present = True
+            if label.get('name', '') == 'Template Mismatch':
+                return False
+    elif label_response.status_code == 404:
+        return {'status': 404}
     return label_approved_present
 
 
@@ -414,7 +418,6 @@ def list_open_prs_from_repo(repo_owner, repo_name):  # pragma: no cover
 def check_pr_template(pr_body, repo_owner, repo_name, pr_number):
     """Validate the PR template.
 
-    Check if the PR template is followed .i.e comparing with the necessary elements set of PR template.
     param pr_body: Content of the PR.
     param repo_owner: Owner of the repository.
     param repo_name: Name of the repository.
@@ -422,11 +425,9 @@ def check_pr_template(pr_body, repo_owner, repo_name, pr_number):
     return: True if the PR template is followed.
     """
     tokens = pr_body.split('\r\n')
-    # Remove blank strings
-    tokens = [s.strip() for s in tokens if s != '']
     # Necessary components in the PR template
-    necessary_elements_set = {'# Description', '# Type of Change:', '# How Has This Been Tested?',
-                              '# Checklist:'}
+    necessary_elements_set = {'### Description', '### Type of Change:', '### How Has This Been Tested?',
+                              '### Checklist:'}
     # Check if issue linking statement is present
     if 'Fixes #' not in pr_body:
         github_comment(MESSAGE.get('pr_not_linked_to_issue'), repo_owner, repo_name, pr_number)
@@ -443,12 +444,11 @@ def check_pr_template(pr_body, repo_owner, repo_name, pr_number):
                     return False
     # Check if the template format has been followed and contents under any header isn't empty
     if set(tokens).intersection(necessary_elements_set) == necessary_elements_set:
-        if tokens[tokens.index('# Description') + 1] != '# Type of Change:' and \
-                tokens[tokens.index('# Type of Change:') + 1] != '# How Has This Been Tested?' and \
-                tokens[tokens.index('# How Has This Been Tested?') + 1] != '# Checklist:' and \
-                tokens[-1] != '# Checklist:':
+        if tokens[tokens.index('### Description') + 1] != '### Type of Change:' and \
+                tokens[tokens.index('### Type of Change:') + 1] != '### How Has This Been Tested?' and \
+                tokens[tokens.index('### How Has This Been Tested?') + 1] != '### Checklist:' and \
+                tokens[-1] != '### Checklist:':
             return True
-
     github_comment(MESSAGE.get('pr_template_not_followed'), repo_owner, repo_name, pr_number)
     close_pr(repo_owner, repo_name, pr_number)
     return False
@@ -462,7 +462,6 @@ def label_list_issue(repo_owner, repo_name, issue_number, comment, commenter):
     param issue_number: ID of the issue.
     param comment: comment message.
     param commenter: ID of the commenter.
-    return: response message and status code.
     """
     tokens = comment.split(",")
     labelled = 0
@@ -470,9 +469,6 @@ def label_list_issue(repo_owner, repo_name, issue_number, comment, commenter):
         if tokens.index(label_name) == 0:
             label_name = label_name.split("@sys-bot label")[1].strip()
         session = requests.Session()
-        session.auth = (USERNAME, PASSWORD)
-        if label_name.strip() != "":
-            label_request_body = '["%s"]' % label_name.strip()
             request_url = add_label_url % (repo_owner, repo_name, issue_number)
             response = session.post(request_url, data=label_request_body, headers=headers)
             if response.status_code == 200:
@@ -483,6 +479,25 @@ def label_list_issue(repo_owner, repo_name, issue_number, comment, commenter):
         return {"message": "Some error occurred", "status": 400}
     else:
         return {"message": "Some labels added to issue", "status": 204}
+
+
+def fetch_issue_body(repo_owner, repo_name, issue_number):
+    """Fetch body/content of a specific issue.
+
+    param repo_owner: Owner of the repository.
+    param repo_name: Name of the repository.
+    param issue_number: ID of the issue.
+    return: response message.
+    """ 
+    session = requests.Session()
+    session.auth = (USERNAME, PASSWORD)
+    request_url = get_issue_url % (repo_owner, repo_name, issue_number)
+    response = session.get(request_url, headers=headers)
+    if response.status_code == 200:
+        issue_content = response.json().get('body', '').replace('#', '').replace('\r', '')
+        return {'issue_body': issue_content, 'status': 200}
+    else:
+        return {'message': 'Wrong information provided', 'status': 404}
 
 
 def pr_reviewed_label(data):

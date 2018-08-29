@@ -13,13 +13,14 @@ from auth_credentials import announcement_channel_id, BOT_UID
 from slack_functions import (dm_new_users, check_newcomer_requirements,
                              approve_issue_label_slack, assign_issue_slack, claim_issue_slack,
                              open_issue_slack, send_message_ephemeral, send_message_to_channels,
-                             slack_team_name_reply, handle_message_answering)
+                             slack_team_name_reply, handle_message_answering, view_issue_slack, label_issue_slack)
 from nltk.stem import WordNetLemmatizer
 from messages import MESSAGE
-from apscheduler.schedulers.background import BackgroundScheduler
-from dictionaries import repo_vs_channel_id_dict
+from apscheduler.scheduler import Scheduler
+from dictionaries import repo_vs_channel_id_dict, CHANNEL_LIST
+
 # The list of channels on which the bot will respond to queries
-CHANNEL_LIST = {'C0CAF47RQ', 'C0S15BFNX', 'CAM6T4AGH'}
+
 
 app = Flask(__name__)
 
@@ -34,10 +35,12 @@ def collect_unreviewed_prs():  # pragma: no cover
             message = MESSAGE.get('list_of_unreviewed_prs', '%s') % pr_list[0:-1]
             # Send pr_list to respective channels
             send_message_to_channels(value, message)
+        else:
+            send_message_to_channels(value, MESSAGE.get('no_unreviewed_prs', ""))
 
 
-schedule = BackgroundScheduler(daemon=True)
-schedule.add_job(collect_unreviewed_prs, 'interval', days=7)
+schedule = Scheduler(daemon=True)
+schedule.add_cron_job(collect_unreviewed_prs, day_of_week='thu', hour=15, minute=30)
 schedule.start()
 
 
@@ -81,14 +84,14 @@ def github_hook_receiver_function():
                 commenter = data.get('comment', {}).get('user', {}).get('login', '')
                 author_association = data.get('comment', {}).get('author_association', '')
                 is_issue_claimed_or_assigned = check_multiple_issue_claim(repo_owner, repo_name, issue_number)
-
                 # Check if the comment by coveralls
                 if commenter == 'coveralls' and 'Coverage decreased' in comment_body:
                     github_comment(MESSAGE.get('add_tests', ''), repo_owner, repo_name, issue_number)
                     return jsonify({'message': "Coveralls comment"})
 
                 # If comment is for approving issue
-                if comment_body.lower().strip().startswith('@sys-bot approve'):
+                if comment_body.lower().strip().startswith('@sys-bot approve') or \
+                        is_variant_of_approve(comment_body.lower()):
                     issue_comment_approve_github(issue_number, repo_name, repo_owner, commenter, False)
                     return jsonify({"message": "Approve command"})
 
@@ -141,7 +144,7 @@ def github_hook_receiver_function():
                     if len(tokens) == 3 and (author_association == 'COLLABORATOR' or author_association == 'OWNER'):
                         unassign_issue(repo_owner, repo_name, issue_number, tokens[2])
                         return jsonify({"message": "Issue unassigned"})
-                    elif len(tokens) == 3 and (author_association != 'COLLABORATOR' or author_association != 'OWNER'):
+                    elif len(tokens) == 3 and (author_association != 'COLLABORATOR' and author_association != 'OWNER'):
                         github_comment(MESSAGE.get('no_permission', ''), repo_owner, repo_name, issue_number)
                     else:
                         github_comment(MESSAGE.get('wrong_format_github', ''), repo_owner, repo_name, issue_number)
@@ -152,10 +155,11 @@ def github_hook_receiver_function():
                     if len(tokens) < 3:
                         github_comment(MESSAGE.get('wrong_format_github', ''), repo_owner, repo_name, issue_number)
                         return jsonify({"message": "Wrong command format"})
-                    elif len(tokens) > 3 and (author_association != 'COLLABORATOR' or author_association != 'OWNER'):
+                    elif len(tokens) >= 3 and (author_association != 'COLLABORATOR' and author_association != 'OWNER'):
                         github_comment(MESSAGE.get('no_permission', ''), repo_owner, repo_name, issue_number)
+                        return jsonify({"message": "Not permitted"})
                     else:
-                        response = label_list_issue(repo_owner, repo_name, issue_number, comment_body, commenter)
+                        response = label_list_issue(repo_owner, repo_name, issue_number, comment_body)
                         return jsonify({"message": response.get("message")})
             elif (action == 'opened' or action == 'reopened') and data.get('pull_request', '') != '':
                 # If a new PR has been sent
@@ -214,7 +218,7 @@ def slack_hook_receiver_function():
                 return jsonify({'message': 'App mentioned'})
             # Check if the message is made on the 3 required channels
             elif event == 'message' and condition_user and condition_subtype and \
-                    channel_type == 'channel' and channel in CHANNEL_LIST:
+                    channel_type == 'channel' and channel in CHANNEL_LIST.values():
                 handle_message_answering(data.get('event', {}))
                 return jsonify({'message': 'FAQ answered'})
         return json.dumps(request.json)
@@ -297,6 +301,22 @@ def help_command():
         return Response(status=200)
 
 
+@app.route('/view_issue', methods=['POST'])
+def view_issue_command():
+    if request.headers['Content-Type'] == 'application/x-www-form-urlencoded':
+        event_data = request.form
+        view_issue_slack(event_data)
+        return Response(status=200)
+
+
+@app.route('/label', methods=['POST'])
+def label_issue():
+    if request.headers['Content-Type'] == 'application/x-www-form-urlencoded':
+        event_data = request.form
+        label_issue_slack(event_data)
+        return Response(status=200)
+
+
 def get_stems(sentence):
     """Perform join on stemmed tokens and return stemmed sentence.
 
@@ -317,6 +337,14 @@ def lemmatize_sent(sentence):
     # and appending to stemmed tokens to lists and overheads of string conversion.
     lemmatized_sentence = ' '.join(WordNetLemmatizer().lemmatize(token) for token in word_tokenize(sentence))
     return lemmatized_sentence
+
+
+def is_variant_of_approve(sentence):
+    """All variants of approve like approved, approving and approval have the same stem approve.
+    """
+    stemmed_sentence_tokens = get_stems(sentence).split()
+    return ('approv' in stemmed_sentence_tokens and 'no' not in stemmed_sentence_tokens and
+            'not' not in stemmed_sentence_tokens)
 
 
 if __name__ == '__main__':  # pragma: no cover

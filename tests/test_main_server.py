@@ -11,66 +11,66 @@ from setup_data import (slash_command_help_data, sentence, slash_command_open_is
 
 
 class TestMainServer(unittest.TestCase):
-    """Tests main server."""
+    """Test main server."""
 
     def setUp(self):
         """Set up test client."""
         self.client = app.test_client()
 
     def test_help_slash_command(self):
-        """Tests help_slash_commands()."""
+        """Test help_slash_commands()."""
         with self.client:
             response = self.client.post('/help', data=json.dumps(slash_command_help_data),
                                         content_type='application/x-www-form-urlencoded')
             self.assertEqual(200, response.status_code)
 
     def test_get_stems(self):
-        """Tests get_stems()."""
+        """Test get_stems()."""
         response = get_stems(sentence)
         self.assertEqual(response, 'Approve approv approv')
 
     def test_lemmatize_sent(self):
-        """Tests lemmatize_sent()."""
+        """Test lemmatize_sent()."""
         response = lemmatize_sent(sentence)
         self.assertEqual(response, 'Approve approved approving')
 
     def test_open_issue_slash_command(self):
-        """Tests open_issue_slash_command()."""
+        """Test open_issue_slash_command()."""
         with self.client:
             response = self.client.post('/open_issue', data=json.dumps(slash_command_open_issue_data),
                                         content_type='application/x-www-form-urlencoded')
             self.assertEqual(200, response.status_code)
 
     def test_slash_claim_command(self):
-        """Tests slash_claim_command()."""
+        """Test slash_claim_command()."""
         with self.client:
             response = self.client.post('/claim', data=json.dumps(slash_command_claim_data),
                                         content_type='application/x-www-form-urlencoded')
             self.assertEqual(200, response.status_code)
 
     def test_slash_assign_issue_command(self):
-        """Tests slash_assign_issue_command()."""
+        """Test slash_assign_issue_command()."""
         with self.client:
             response = self.client.post('/slack_assign_issue', data=json.dumps(slash_command_assign_issue_data),
                                         content_type='application/x-www-form-urlencoded')
             self.assertEqual(200, response.status_code)
 
     def test_slash_approve_issue(self):
-        """Tests slash_approve_issue()."""
+        """Test slash_approve_issue()."""
         with self.client:
             response = self.client.post('/slack_approve_issue', data=json.dumps(slash_command_approve_issue_data),
                                         content_type='application/x-www-form-urlencoded')
             self.assertEqual(200, response.status_code)
 
     def test_slash_invite_command(self):
-        """Tests slash_invite_command()."""
+        """Test slash_invite_command()."""
         with self.client:
             response = self.client.post('/invite', data=json.dumps(slash_command_approve_issue_data),
                                         content_type='application/x-www-form-urlencoded')
             self.assertEqual(200, response.status_code)
 
     def test_challenge(self):
-        """Tests challenge()."""
+        """Test challenge()."""
         with self.client:
             response_challenge_token = self.client.post('/challenge', data=json.dumps(data_with_challenge_token),
                                                         content_type='application/json')
@@ -86,13 +86,13 @@ class TestMainServer(unittest.TestCase):
             self.assertEqual(response_message_reply.data, '{\n  "message": "FAQ answered"\n}\n')
 
     def test_home(self):
-        """Tests home()."""
+        """Test home()."""
         with self.client:
             response = self.client.get('/')
             self.assertEqual(response.data, 'Response to test hosting.')
 
     def test_github_hook_receiver(self):
-        """Tests github_hook_reciever()."""
+        """Test github_hook_reciever()."""
         with self.client:
             response_issue_opened = self.client.post('/web_hook', data=json.dumps(event_data_issue_opened),
                                                      content_type='application/json')
@@ -142,6 +142,7 @@ class TestMainServer(unittest.TestCase):
                                                              content_type='application/json')
             self.assertEqual(response_unclaim_wrong_format.data, '{\n  "message": "Wrong command format"\n}\n')
             event_data_comment['comment']['body'] = "@sys-bot unassign sammy1997"
+            event_data_comment['comment']['author_association'] = 'COLLABORATOR'
             response_unassign = self.client.post('/web_hook', data=json.dumps(event_data_comment),
                                                  content_type='application/json')
             self.assertEqual(response_unassign.data, '{\n  "message": "Issue unassigned"\n}\n')
@@ -149,14 +150,15 @@ class TestMainServer(unittest.TestCase):
             response_unassign_wrong_format = self.client.post('/web_hook', data=json.dumps(event_data_comment),
                                                               content_type='application/json')
             self.assertEqual(response_unassign_wrong_format.data, '{\n  "message": "Wrong command format"\n}\n')
-            event_data_comment['comment']['body'] = "@sys-bot label test-label, approved, bug"
+            event_data_comment['comment']['body'] = "@sys-bot label enhancement, bug"
             event_data_comment['issue']['number'] = "140"
+            event_data_comment['comment']['author_association'] = 'COLLABORATOR'
             response_label_correct_format = self.client.post('/web_hook', data=json.dumps(event_data_comment),
                                                              content_type='application/json')
             self.assertEqual(response_label_correct_format.data, '{\n  "message": "All labels added to issue"\n}\n')
             event_data_comment['comment']['body'] = "@sys-bot label"
             response_label_wrong_format = self.client.post('/web_hook', data=json.dumps(event_data_comment),
-                                                             content_type='application/json')
+                                                           content_type='application/json')
             self.assertEqual(response_label_wrong_format.data, '{\n  "message": "Wrong command format"\n}\n')
             response_pr_to_unapproved_issue = self.client.post('/web_hook', data=json.dumps(event_data_pr_opened),
                                                                content_type='application/json')
@@ -169,6 +171,13 @@ class TestMainServer(unittest.TestCase):
             response_unhandled = self.client.post('/web_hook', data=json.dumps(event_data_pr_opened),
                                                   content_type='application/json')
             self.assertEqual(response_unhandled.data, '{\n  "message": "Unknown event"\n}\n')
+
+    def test_label_issue(self):
+        """Test label_issue()."""
+        with self.client:
+            response = self.client.post('/label', data=json.dumps(slash_command_label_issue_data),
+                                        content_type='application/x-www-form-urlencoded')
+            self.assertEqual(200, response.status_code)
 
 
 if __name__ == '__main__':

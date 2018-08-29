@@ -1,4 +1,4 @@
-"""Tests slack_function() module."""
+"""Test slack_function() module."""
 
 import unittest
 from code.slack_functions import (get_github_username_profile, get_detailed_profile,
@@ -13,17 +13,17 @@ from setup_data import (profile_with_github, profile_without_github, query_getti
 
 
 class TestSlackFunctions(unittest.TestCase):
-    """Tests slack functions."""
+    """Test slack functions."""
 
     def test_get_github_username_profile(self):
-        """Tests get_github_username_profile()."""
+        """Test get_github_username_profile()."""
         profile_url_present = get_github_username_profile(profile_with_github.get('profile'))
         profile_url_missing = get_github_username_profile(profile_without_github.get('profile'))
         self.assertEqual(profile_url_present, {'github_profile_present': True, 'github_id': 'sammy1997'})
         self.assertEqual(profile_url_missing, {'github_profile_present': False})
 
     def test_get_detailed_profile(self):
-        """Tests get_detailed_profile()."""
+        """Test get_detailed_profile()."""
         # Wrong UID
         false_profile = get_detailed_profile('U7KMRCMNR')
         # Correct UID
@@ -32,14 +32,14 @@ class TestSlackFunctions(unittest.TestCase):
         self.assertEqual(correct_profile, {'profile': profile_with_github.get('profile'), 'ok': True})
 
     def test_is_maintainer_comment(self):
-        """Tests is_maintainer_comment()."""
+        """Test is_maintainer_comment()."""
         maintainer_comment = is_maintainer_comment('U7KMRCS5Q')
         non_maintainer_comment = is_maintainer_comment('U7KMRCMNR')
         self.assertEqual(maintainer_comment, {'status': 200, 'is_maintainer': True})
         self.assertEqual(non_maintainer_comment, {'status': 200, 'is_maintainer': False})
 
     def test_check_newcomer_requirements(self):
-        """Tests check_newcomer_requirements()."""
+        """Test check_newcomer_requirements()."""
         profile_complete = check_newcomer_requirements('U7KMRCS5Q', 'CAP9GA5MJ')
         profile_incomplete = check_newcomer_requirements('UASFP3GHW', 'CAP9GA5MJ')
         error_response = check_newcomer_requirements('U7KMRCMNR', 'CAP9GA5MJ')
@@ -48,19 +48,19 @@ class TestSlackFunctions(unittest.TestCase):
         self.assertEqual(error_response, {"message": "Error with slash command"})
 
     def test_luis_classifier(self):
-        """Tests luis_classifier()."""
+        """Test luis_classifier()."""
         response_getting_started = luis_classifier(query_getting_started, 'CAP9GA5MM', 1532589895.000165)
         self.assertEqual(response_getting_started, {'message': 'Getting started question'})
         response_participant_gender = luis_classifier(query_gender_participation, 'CAP9GA5MM', 1532589895.000165)
         self.assertEqual(response_participant_gender, {'message': 'Participant gender question'})
 
     def test_dm_new_users(self):
-        """Tests dm_new_users()."""
+        """Test dm_new_users()."""
         response_successful_dm = dm_new_users(new_user_data)
         self.assertEqual(response_successful_dm, {'message': 'Success', 'status': 200})
 
     def test_slack_team_name_reply(self):
-        """Tests slack_team_name_reply()."""
+        """Test slack_team_name_reply()."""
         response_wrong_channel = slack_team_name_reply(new_user_data)
         self.assertEqual(response_wrong_channel, {'message': 'Team does not exist in records.'})
         new_user_data["event"]["channel"]="CAEDCBACW"
@@ -72,12 +72,12 @@ class TestSlackFunctions(unittest.TestCase):
         self.assertEqual(response_illegal_query, {'message': 'Illegitimate query.'})
 
     def test_answer_keyword_faqs(self):
-        """Tests answer_keyword_faqs()."""
+        """Test answer_keyword_faqs()."""
         response = answer_keyword_faqs(faq_sentence, 'CAP8GX5NH', '15000032.23411')
         self.assertEqual(response, {"message": "Keyword FAQs answered"})
 
     def test_approve_issue_label_slack(self):
-        """Tests approve_issue_label_slack."""
+        """Test approve_issue_label_slack."""
         slash_command_approve_issue_data["channel_id"] = "CAP8GH5MX"
         slash_command_approve_issue_data["text"] = "sysbot-test 36"
         response_author = approve_issue_label_slack(slash_command_approve_issue_data)
@@ -90,7 +90,7 @@ class TestSlackFunctions(unittest.TestCase):
         self.assertEqual(response_wrong_params, {"message": "Wrong parameters for for approval command"})
 
     def test_assign_issue_slack(self):
-        """Tests assign_issue_slack()."""
+        """Test assign_issue_slack()."""
         slash_command_assign_issue_data["text"]="sysbot-test 150 sammy1997"
         response_assign_claimed = assign_issue_slack(slash_command_assign_issue_data)
         self.assertEqual(response_assign_claimed, {"message": "Issue already claimed"})
@@ -105,10 +105,32 @@ class TestSlackFunctions(unittest.TestCase):
         self.assertEqual(response_assign_wrong_format, {"message": "Wrong format of command"})
 
     def test_claim_issue_slack(self):
-        """Tests claim_issue_slack()."""
+        """Test claim_issue_slack()."""
         slash_command_claim_data["text"] = "sysbot-test 150 sammy1997"
         response_already_claimed = claim_issue_slack(slash_command_claim_data)
         self.assertEqual(response_already_claimed, {"message": "Issue already claimed"})
         slash_command_claim_data["text"] = "sysbot-test 152 sammy1997"
         response_not_approved = claim_issue_slack(slash_command_claim_data)
         self.assertEqual(response_not_approved, {"message": "Issue not approved"})
+
+    def test_view_issue_slack(self):
+        """Test view_issue_slack()."""
+        response_success = view_issue_slack(slash_command_view_issue_data)
+        self.assertEqual(response_success, {'message': 'Success in viewing.'})
+        slash_command_view_issue_data['text'] = "sysbot-testing 178"
+        response_wrong_info = view_issue_slack(slash_command_view_issue_data)
+        self.assertEqual(response_wrong_info, {'message': "Wrong info provided"})
+        slash_command_view_issue_data['text'] = "sysbot-testing 178 sammy1997"
+        response_wrong_params = view_issue_slack(slash_command_view_issue_data)
+        self.assertEqual(response_wrong_params, {'message': "Error in using command"})
+
+    def test_label_issue_slack(self):
+        """Test label_issue_slack()."""
+        label_success = label_issue_slack(slash_command_label_issue_data)
+        self.assertEqual(label_success, {'message': 'Labelled issue'})
+        slash_command_label_issue_data['text'] = "sysbot-testing 181 [bug, enhancement]"
+        label_wrong_info = label_issue_slack(slash_command_label_issue_data)
+        self.assertEqual(label_wrong_info, {'message': 'Wrong info'})
+        slash_command_label_issue_data['text'] = "sysbot-testing 181"
+        label_wrong_params = label_issue_slack(slash_command_label_issue_data)
+        self.assertEqual(label_wrong_params, {'message': 'Wrong format'})
