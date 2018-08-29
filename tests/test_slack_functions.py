@@ -1,3 +1,5 @@
+"""Tests slack_function() module."""
+
 import unittest
 from code.slack_functions import (get_github_username_profile, get_detailed_profile,
                                   is_maintainer_comment, check_newcomer_requirements,
@@ -12,6 +14,7 @@ from setup_data import (profile_with_github, profile_without_github, query_getti
 
 class TestSlackFunctions(unittest.TestCase):
     """Tests slack functions."""
+
     def test_get_github_username_profile(self):
         """Tests get_github_username_profile()."""
         profile_url_present = get_github_username_profile(profile_with_github.get('profile'))
@@ -74,7 +77,7 @@ class TestSlackFunctions(unittest.TestCase):
         self.assertEqual(response, {"message": "Keyword FAQs answered"})
 
     def test_approve_issue_label_slack(self):
-        """Tests approve_issue_label_slack.()"""
+        """Tests approve_issue_label_slack."""
         slash_command_approve_issue_data["channel_id"] = "CAP8GH5MX"
         slash_command_approve_issue_data["text"] = "sysbot-test 36"
         response_author = approve_issue_label_slack(slash_command_approve_issue_data)
