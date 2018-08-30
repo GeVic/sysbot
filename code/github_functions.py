@@ -468,7 +468,7 @@ def label_list_issue(repo_owner, repo_name, issue_number, comment, commenter):
     for label_name in tokens:
         if tokens.index(label_name) == 0:
             label_name = label_name.split("@sys-bot label")[1].strip()
-        session = requests.Session()
+            session = requests.Session()
             request_url = add_label_url % (repo_owner, repo_name, issue_number)
             response = session.post(request_url, data=label_request_body, headers=headers)
             if response.status_code == 200:
@@ -488,7 +488,7 @@ def fetch_issue_body(repo_owner, repo_name, issue_number):
     param repo_name: Name of the repository.
     param issue_number: ID of the issue.
     return: response message.
-    """ 
+    """
     session = requests.Session()
     session.auth = (USERNAME, PASSWORD)
     request_url = get_issue_url % (repo_owner, repo_name, issue_number)
