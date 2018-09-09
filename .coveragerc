@@ -2,8 +2,5 @@
 omit =
     */tests/*
     code/messages.py
-<<<<<<< HEAD
-=======
     code/dictionaries_test.py
->>>>>>> 02fbaf1413cdb49c4457bf8bc144a4ae5ce62397
     simulate/*
